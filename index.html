@@ -209,10 +209,9 @@
     position:absolute; inset:9%;
     border-radius:50%;
     background: conic-gradient(from 0deg, transparent 0deg, rgba(143,230,239,0.65) 6deg, transparent 34deg);
-    animation: spin 5.5s linear infinite;
     mix-blend-mode: screen;
     filter: blur(0.5px);
-    transition: filter 0.5s ease;
+    will-change: transform;
   }
 
   .core{
@@ -298,11 +297,9 @@
     font-size:min(2.6vh, 1.4rem);
     line-height:1.4;
     color:var(--parchment);
-    min-height:4.4em;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    transition: opacity 0.25s ease;
+    min-height:2.8em;
+    text-align:center;
+    transition: opacity 0.3s ease;
   }
   .thesis span{ color:var(--brass); font-style:normal; }
 
@@ -406,9 +403,18 @@
     position:fixed;
     bottom:0; left:0; right:0;
     z-index:4;
-    border-top:1px solid var(--line);
     background:linear-gradient(0deg, rgba(10,12,16,0.92), rgba(10,12,16,0));
-    padding:11px 0;
+    padding:12px 0 11px;
+  }
+  .ticker-wrap::before{
+    content:'';
+    position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg,
+      transparent 0%,
+      var(--brass-dim) 20%,
+      rgba(201,168,118,0.55) 50%,
+      var(--brass-dim) 80%,
+      transparent 100%);
   }
   .ticker{
     font-family:'IBM Plex Mono', monospace;
@@ -708,45 +714,45 @@
   ];
 
   var stageIndex = 0;
-  var raw = 0;
+  var targetRaw = 0;     // where input wants us to be
+  var displayRaw = 0;    // smoothed, eased position that actually drives stage
   var STEP = 130;
   var MAXRAW = (STAGES.length - 1) * STEP;
+  var lastChangeTime = 0;
+  var CHANGE_COOLDOWN = 300; // ms — lets one crossfade finish before the next starts
 
   var eyebrowEl = document.getElementById('eyebrow');
   var thesisEl = document.getElementById('thesis');
   var statusEl = document.getElementById('status-word');
   var signalEl = document.getElementById('signal-word');
   var sweepEl = document.getElementById('sweep');
-  var coreEl = document.getElementById('core');
   var hintEl = document.getElementById('hint');
   var dots = document.querySelectorAll('.depth-dot');
   var seqWords = document.querySelectorAll('.seq-word');
   var hintDismissed = false;
 
-  function applyStage(i, animate){
+  function dismissHint(){
+    if(!hintDismissed){
+      hintDismissed = true;
+      hintEl.classList.add('hidden');
+    }
+  }
+
+  function applyStage(i){
     var s = STAGES[i];
 
-    function swapText(){
+    eyebrowEl.style.opacity = 0;
+    thesisEl.style.opacity = 0;
+    setTimeout(function(){
       eyebrowEl.textContent = s.tag;
       thesisEl.innerHTML = s.thesis;
       statusEl.innerHTML = '<b>' + s.status + '</b>';
       signalEl.innerHTML = '<b>' + s.signal + '</b>';
-    }
-
-    if(animate){
-      eyebrowEl.style.opacity = 0;
-      thesisEl.style.opacity = 0;
-      setTimeout(function(){
-        swapText();
-        eyebrowEl.style.opacity = 1;
-        thesisEl.style.opacity = 1;
-      }, 220);
-    } else {
-      swapText();
-    }
+      eyebrowEl.style.opacity = 1;
+      thesisEl.style.opacity = 1;
+    }, 240);
 
     document.documentElement.style.setProperty('--accent', s.accent);
-    sweepEl.style.animationDuration = s.sweepDur + 's';
 
     dots.forEach(function(d){
       d.classList.toggle('active', parseInt(d.dataset.stage,10) === i);
@@ -759,25 +765,15 @@
     setBlipRate(Math.max(650, 1900 - i*230));
   }
 
-  function goToStage(i){
-    i = Math.max(0, Math.min(STAGES.length - 1, i));
-    if(i !== stageIndex){
-      stageIndex = i;
-      applyStage(stageIndex, true);
-    }
-    if(!hintDismissed){
-      hintDismissed = true;
-      hintEl.classList.add('hidden');
-    }
-  }
+  applyStage(0);
 
-  applyStage(0, false);
+  /* ---- input: only ever nudges the *target*, never the visible state directly ---- */
 
   window.addEventListener('wheel', function(e){
     e.preventDefault();
-    raw += e.deltaY;
-    raw = Math.max(0, Math.min(raw, MAXRAW));
-    goToStage(Math.round(raw / STEP));
+    targetRaw += e.deltaY;
+    targetRaw = Math.max(0, Math.min(targetRaw, MAXRAW));
+    dismissHint();
   }, { passive:false });
 
   var touchStartY = null;
@@ -791,22 +787,63 @@
     var y = e.touches[0].clientY;
     var diff = touchStartY - y;
     touchStartY = y;
-    raw += diff * 2.2;
-    raw = Math.max(0, Math.min(raw, MAXRAW));
-    goToStage(Math.round(raw / STEP));
+    targetRaw += diff * 2.2;
+    targetRaw = Math.max(0, Math.min(targetRaw, MAXRAW));
+    dismissHint();
   }, { passive:false });
 
   window.addEventListener('keydown', function(e){
     var blockedKeys = ['ArrowDown','ArrowUp','PageDown','PageUp','Home','End',' '];
     if(blockedKeys.indexOf(e.key) !== -1){ e.preventDefault(); }
     if(e.key === 'ArrowDown' || e.key === 'PageDown'){
-      raw = Math.min(MAXRAW, (stageIndex + 1) * STEP);
-      goToStage(stageIndex + 1);
+      targetRaw = Math.min(MAXRAW, targetRaw + STEP);
+      dismissHint();
     } else if(e.key === 'ArrowUp' || e.key === 'PageUp'){
-      raw = Math.max(0, (stageIndex - 1) * STEP);
-      goToStage(stageIndex - 1);
+      targetRaw = Math.max(0, targetRaw - STEP);
+      dismissHint();
+    } else if(e.key === 'Home'){
+      targetRaw = 0; dismissHint();
+    } else if(e.key === 'End'){
+      targetRaw = MAXRAW; dismissHint();
     }
   }, { passive:false });
+
+  /* ---- single continuous animation loop: eases scroll depth AND spins the sweep ---- */
+
+  var sweepAngle = 0;
+  var sweepSpeed = 360 / (STAGES[0].sweepDur * 1000); // deg per ms
+  var lastFrame = null;
+
+  function frame(now){
+    if(lastFrame === null){ lastFrame = now; }
+    var dt = Math.min(48, now - lastFrame); // clamp huge gaps (tab switches etc.)
+    lastFrame = now;
+
+    // ease displayRaw toward targetRaw — this is what makes scroll feel smooth
+    displayRaw += (targetRaw - displayRaw) * Math.min(1, dt / 260);
+    if(Math.abs(targetRaw - displayRaw) < 0.05){ displayRaw = targetRaw; }
+
+    var wantStage = Math.max(0, Math.min(STAGES.length - 1, Math.round(displayRaw / STEP)));
+    if(wantStage !== stageIndex && (now - lastChangeTime) > CHANGE_COOLDOWN){
+      stageIndex = wantStage;
+      lastChangeTime = now;
+      applyStage(stageIndex);
+    }
+
+    // ease the sweep's rotation speed toward the current stage's target speed
+    var targetSpeed = 360 / (STAGES[stageIndex].sweepDur * 1000);
+    sweepSpeed += (targetSpeed - sweepSpeed) * Math.min(1, dt / 400);
+    sweepAngle = (sweepAngle + sweepSpeed * dt) % 360;
+    sweepEl.style.transform = 'rotate(' + sweepAngle + 'deg)';
+
+    requestAnimationFrame(frame);
+  }
+
+  if(reduceMotion){
+    sweepEl.style.transform = 'rotate(0deg)';
+  } else {
+    requestAnimationFrame(frame);
+  }
 
 })();
 </script>
