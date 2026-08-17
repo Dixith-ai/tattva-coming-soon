@@ -309,6 +309,12 @@
     letter-spacing:0.13em;
     color:var(--muted);
     text-transform:uppercase;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    align-items:center;
+    row-gap:6px;
+    max-width:520px;
   }
   .sequence b{ color:var(--brass-dim); font-weight:500; margin:0 2px; }
   .seq-word{ color:var(--muted); transition: color 0.4s ease, text-shadow 0.4s ease; }
@@ -467,9 +473,57 @@
   }
 
   @media (max-width:640px){
-    .notify{ flex-direction:column; align-items:stretch; }
-    .notify input{ width:100%; }
-    .corner{ font-size:9px; }
+    .notify{ flex-direction:column; align-items:stretch; width:100%; max-width:260px; }
+    .notify input{ width:100%; text-align:center; }
+    .notify button{ width:100%; }
+
+    .corner{ font-size:8.5px; letter-spacing:0.04em; line-height:1.5; }
+    .corner-tl{ top:16px; left:16px; max-width:44vw; }
+    .corner-tr{ top:16px; right:16px; max-width:42vw; }
+
+    /* bottom-left/right HUD collides with the ticker on short phone screens —
+       drop it there and let the ticker + top HUD carry the info instead */
+    .corner-bl, .corner-br{ display:none; }
+
+    .bracket{ width:14px; height:14px; }
+    .bracket.tl, .bracket.tr{ top:12px; }
+    .bracket.bl, .bracket.br{ bottom:12px; }
+
+    .hero{
+      padding: min(11vh, 84px) 24px min(9vh, 76px);
+      gap: min(1.6vh, 12px);
+    }
+
+    .instrument{
+      width: min(34vh, 46vw, 220px);
+      height: min(34vh, 46vw, 220px);
+      margin-bottom: min(1.2vh, 10px);
+    }
+
+    h1{ letter-spacing:0.1em; }
+
+    .thesis{ font-size:min(2.3vh, 1.05rem); max-width:320px; }
+
+    .sequence{
+      font-size:8.5px;
+      letter-spacing:0.08em;
+      max-width:280px;
+      row-gap:5px;
+      margin-top:2px;
+    }
+    .sequence b{ margin:0 1px; }
+
+    .notify{ margin-top:min(2.4vh, 18px); }
+
+    .hint{ bottom:64px; }
+
+    .ticker{ font-size:9px; padding:0 16px; }
+  }
+
+  @media (max-width:640px) and (max-height:700px){
+    .devanagari, .gloss{ display:none; }
+    .instrument{ width:min(28vh, 40vw, 170px); height:min(28vh, 40vw, 170px); }
+    .hero{ gap:8px; padding-top:min(9vh, 60px); }
   }
 
   @media (prefers-reduced-motion: reduce){
